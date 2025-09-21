@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Tables - Ali Restaurant Management{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Tables Management</h1>
+            <a href="{{ url_for('add_table') }}" class="btn btn-primary mb-3">
+                <i class="fas fa-plus"></i> Add Table
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ tables|length }}</h3>
+                    <p class="text-muted">Total Tables</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ tables|selectattr('is_occupied', 'equalto', false)|list|length }}</h3>
+                    <p class="text-muted">Available</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ tables|selectattr('is_occupied', 'equalto', true)|list|length }}</h3>
+                    <p class="text-muted">Occupied</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-info">{{ tables|sum(attribute='capacity') }}</h3>
+                    <p class="text-muted">Total Seats</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables Grid -->
+    <div class="row">
+        {% for table in tables %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card h-100 {% if table.is_occupied %}border-warning{% else %}border-success{% endif %}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            {% if table.number == 0 %}
+                                <i class="fas fa-shopping-bag me-2"></i>Takeaway
+                            {% else %}
+                                <i class="fas fa-table me-2"></i>Table {{ table.number }}
+                            {% endif %}
+                        </h5>
+                        <span class="badge {% if table.is_occupied %}bg-warning{% else %}bg-success{% endif %}">
+                            {{ 'Occupied' if table.is_occupied else 'Available' }}
+                        </span>
+                    </div>
+                    
+                    <div class="card-body">
+                        <p class="card-text">
+                            <i class="fas fa-users me-2"></i>
+                            {% if table.number == 0 %}
+                                Pickup Orders
+                            {% else %}
+                                Capacity: {{ table.capacity }} guests
+                            {% endif %}
+                        </p>
+                        
+                        <div class="row text-center mt-3">
+                            <div class="col-6">
+                                <strong class="text-primary">{{ table.orders|length }}</strong>
+                                <small class="d-block text-muted">Total Orders</small>
+                            </div>
+                            <div class="col-6">
+                                {% set active_orders = table.orders|selectattr('status', 'in', ['pending', 'preparing', 'ready'])|list %}
+                                <strong class="text-success">{{ active_orders|length }}</strong>
+                                <small class="d-block text-muted">Active Orders</small>
+                            </div>
+                        </div>
+                        
+                        {% if table.is_occupied %}
+                            {% set current_order = table.orders|selectattr('status', 'in', ['pending', 'preparing', 'ready'])|first %}
+                            {% if current_order %}
+                                <hr>
+                                <div class="current-order">
+                                    <h6 class="text-dark">Current Order:</h6>
+                                    <p class="mb-1"><strong>{{ current_order.customer_name }}</strong></p>
+                                    <small class="text-muted">Order #{{ current_order.id }}</small>
+                                    <span class="badge ms-2 bg-{{ 
+                                        'warning' if current_order.status == 'pending' else
+                                        'info' if current_order.status == 'preparing' else
+                                        'success' if current_order.status == 'ready' else
+                                        'secondary'
+                                    }}">
+                                        {{ current_order.status.title() }}
+                                    </span>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-footer">
+                        <div class="btn-group w-100">
+                            <a href="{{ url_for('edit_table', id=table.id) }}" 
+                               class="btn btn-outline-warning btn-sm">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            {% if not table.is_occupied and table.number != 0 %}
+                                <a href="{{ url_for('delete_table', id=table.id) }}" 
+                                   class="btn btn-outline-danger btn-sm"
+                                   onclick="return confirm('Are you sure you want to delete Table {{ table.number }}?')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            {% endif %}
+                        </div>
+                        
+                        {% if table.is_occupied %}
+                            <button class="btn btn-outline-info btn-sm mt-2 w-100" 
+                                    onclick="viewTableOrders({{ table.id }})">
+                                <i class="fas fa-eye"></i> View Orders
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Empty State -->
+    {% if not tables %}
+        <div class="text-center py-5">
+            <i class="fas fa-table fa-4x text-muted mb-4"></i>
+            <h3 class="text-muted mb-3">No Tables Found</h3>
+            <p class="text-muted mb-4">Get started by adding your first table to the restaurant.</p>
+            <a href="{{ url_for('add_table') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus me-2"></i>Add Your First Table
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Table Orders Modal -->
+<div class="modal fade" id="tableOrdersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-table me-2"></i>Table Orders
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="tableOrdersContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function viewTableOrders(tableId) {
+        console.log('Loading orders for table ID:', tableId);
+        
+        const modal = new bootstrap.Modal(document.getElementById('tableOrdersModal'));
+        const content = document.getElementById('tableOrdersContent');
+        
+        content.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading table orders...</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        fetch('/api/tables/' + tableId + '/orders')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(orders => {
+                if (orders.length > 0) {
+                    content.innerHTML = orders.map(order => `
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">Order #${order.id}</h6>
+                                        <p class="mb-1">Customer: ${order.customer_name}</p>
+                                        <small class="text-muted">Created: ${new Date(order.created_at).toLocaleString()}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-${order.status === 'pending' ? 'warning' : 
+                                                                order.status === 'preparing' ? 'info' : 
+                                                                order.status === 'ready' ? 'success' : 'primary'} mb-2">
+                                            ${order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                        </span>
+                                        <div><strong>$${order.total_amount}</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    content.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                            <h5>No Orders Found</h5>
+                            <p class="text-muted">This table has no orders at the moment.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching table orders:', error);
+                content.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                        <h5>Error Loading Orders</h5>
+                        <p class="text-muted">Unable to load orders for this table.</p>
+                    </div>
+                `;
+            });
+    }
+</script>
+{% endblock %}

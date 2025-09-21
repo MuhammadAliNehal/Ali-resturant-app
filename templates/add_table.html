@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Add Table - Ali Restaurant Management{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-plus me-2"></i>
+                        Add New Table
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="table_number" class="form-label">
+                                <i class="fas fa-hashtag me-2"></i>Table Number
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="table_number" 
+                                   name="table_number" 
+                                   min="0"
+                                   required>
+                            <div class="form-text">
+                                Use 0 for takeaway/pickup orders table. Each table number must be unique.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="capacity" class="form-label">
+                                <i class="fas fa-users me-2"></i>Capacity
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="capacity" 
+                                   name="capacity" 
+                                   min="1" 
+                                   max="20"
+                                   required>
+                            <div class="form-text">
+                                Maximum number of guests this table can accommodate (1-20)
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('tables_list') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add Table
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Table Guidelines
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Table Numbers:</h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-check text-success me-2"></i>Must be unique</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Use 0 for takeaway orders</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Can be any positive number</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Capacity Guidelines:</h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-check text-success me-2"></i>Minimum: 1 guest</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Maximum: 20 guests</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Consider comfort and space</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const tableNumberInput = document.getElementById('table_number');
+        const capacityInput = document.getElementById('capacity');
+        
+        // Form validation
+        form.addEventListener('submit', function(e) {
+            const tableNumber = parseInt(tableNumberInput.value);
+            const capacity = parseInt(capacityInput.value);
+            
+            if (tableNumber < 0) {
+                e.preventDefault();
+                alert('Table number cannot be negative');
+                tableNumberInput.focus();
+                return;
+            }
+            
+            if (capacity < 1 || capacity > 20) {
+                e.preventDefault();
+                alert('Capacity must be between 1 and 20');
+                capacityInput.focus();
+                return;
+            }
+        });
+        
+        // Auto-suggest capacity based on common table sizes
+        tableNumberInput.addEventListener('blur', function() {
+            const tableNum = parseInt(this.value);
+            if (tableNum > 0 && !capacityInput.value) {
+                // Suggest default capacity for regular tables
+                capacityInput.value = 4;
+            } else if (tableNum === 0 && !capacityInput.value) {
+                // Takeaway table
+                capacityInput.value = 1;
+            }
+        });
+    });
+</script>
+{% endblock %}

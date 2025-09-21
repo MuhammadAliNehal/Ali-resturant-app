@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Add Category - Ali Restaurant{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>Add New Category
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                <i class="fas fa-tag me-2"></i>Category Name
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="name" 
+                                   name="name" 
+                                   placeholder="e.g., Appetizers, Main Course"
+                                   required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="description" class="form-label">
+                                <i class="fas fa-align-left me-2"></i>Description (Optional)
+                            </label>
+                            <textarea class="form-control" 
+                                      id="description" 
+                                      name="description" 
+                                      rows="3"
+                                      placeholder="Describe this category..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('categories_list') if url_for else '/menu' }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Add Category
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Suggestions -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Popular Categories
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillCategory('Appetizers', 'Start your meal with these delicious appetizers')">Appetizers</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillCategory('Main Course', 'Our signature main dishes')">Main Course</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillCategory('Desserts', 'Sweet endings to your meal')">Desserts</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillCategory('Beverages', 'Refreshing drinks and beverages')">Beverages</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillCategory('Fast Food', 'Quick and delicious options')">Fast Food</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillCategory(name, description) {
+    document.getElementById('name').value = name;
+    document.getElementById('description').value = description;
+}
+</script>
+{% endblock %}

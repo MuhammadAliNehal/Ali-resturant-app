@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Order - Ali Restaurant{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Order Form -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 100px;">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>Order Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="orderForm">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.customer_name.label(class="form-label") }}
+                            {{ form.customer_name(class="form-control", placeholder="Enter customer name") }}
+                            {% if form.customer_name.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.customer_name.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.table_id.label(class="form-label") }}
+                            {{ form.table_id(class="form-select") }}
+                            {% if form.table_id.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.table_id.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Hidden fields for order items and total -->
+                        <input type="hidden" name="order_items" id="orderItemsData" value="[]">
+                        <input type="hidden" name="total_amount" id="totalAmount" value="0">
+                        
+                        <!-- Order Summary -->
+                        <div class="order-summary mt-4">
+                            <h6 class="fw-bold">Order Summary</h6>
+                            <div id="orderItems" class="mb-3">
+                                <div class="text-muted text-center py-3">
+                                    <i class="fas fa-shopping-cart fa-2x mb-2 d-block"></i>
+                                    No items added yet
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span id="subtotal">$0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Tax (8%):</span>
+                                <span id="tax">$0.00</span>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between mb-3">
+                                <span class="fw-bold">Total:</span>
+                                <span class="fw-bold text-success" id="total">$0.00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success" id="submitOrder" disabled>
+                                <i class="fas fa-plus me-2"></i>Create Order
+                            </button>
+                            <a href="{{ url_for('orders_list') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Menu Items Selection -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-utensils me-2"></i>Select Menu Items
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if menu_items %}
+                        <!-- Category Filter -->
+                        <div class="mb-3">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary active" data-category="all">All Items</button>
+                                {% for category in categories %}
+                                <button type="button" class="btn btn-outline-secondary" data-category="{{ category.id }}">{{ category.name }}</button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <!-- Menu Items Grid -->
+                        <div class="row g-3">
+                            {% for item in menu_items %}
+                            <div class="col-md-6 col-lg-4 menu-item" data-category="{{ item.category_id }}">
+                                <div class="card h-100">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title">{{ item.name }}</h6>
+                                        <p class="card-text small text-muted">{{ item.description[:50] }}...</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold text-success">${{ "%.2f"|format(item.price) }}</span>
+                                            <div class="quantity-controls" style="display: none;">
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-outline-danger" onclick="decreaseQuantity({{ item.id }})">
+                                                        <i class="fas fa-minus"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary quantity-display">1</button>
+                                                    <button type="button" class="btn btn-outline-success" onclick="increaseQuantity({{ item.id }})">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-primary add-item-btn" 
+                                                    onclick="addToOrder({{ item.id }}, '{{ item.name }}', {{ item.price }})">
+                                                <i class="fas fa-plus"></i> Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-utensils fa-3x text-muted mb-3"></i>
+                            <h5>No menu items available</h5>
+                            <p class="text-muted">Please add menu items first.</p>
+                            <a href="{{ url_for('add_menu_item') }}" class="btn btn-primary">Add Menu Items</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.menu-item {
+    transition: all 0.3s ease;
+}
+
+.menu-item:hover .card {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.quantity-controls {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Order management
+let orderItems = [];
+let orderTotal = 0;
+
+// Add item to order
+function addToOrder(itemId, itemName, itemPrice) {
+    const existingItem = orderItems.find(item => item.id === itemId);
+    
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        orderItems.push({
+            id: itemId,
+            name: itemName,
+            price: parseFloat(itemPrice),
+            quantity: 1
+        });
+    }
+    
+    updateOrderDisplay();
+    
+    // Show quantity controls and hide add button
+    const menuItem = document.querySelector(`[data-category] .card-body`).closest('.menu-item');
+    const addBtn = event.target;
+    const quantityControls = addBtn.parentElement.querySelector('.quantity-controls');
+    const quantityDisplay = quantityControls.querySelector('.quantity-display');
+    
+    addBtn.style.display = 'none';
+    quantityControls.style.display = 'block';
+    quantityDisplay.textContent = existingItem ? existingItem.quantity : 1;
+}
+
+// Increase quantity
+function increaseQuantity(itemId) {
+    const item = orderItems.find(item => item.id === itemId);
+    if (item) {
+        item.quantity += 1;
+        updateOrderDisplay();
+        
+        // Update display
+        const quantityDisplay = event.target.closest('.quantity-controls').querySelector('.quantity-display');
+        quantityDisplay.textContent = item.quantity;
+    }
+}
+
+// Decrease quantity
+function decreaseQuantity(itemId) {
+    const itemIndex = orderItems.findIndex(item => item.id === itemId);
+    if (itemIndex !== -1) {
+        orderItems[itemIndex].quantity -= 1;
+        
+        if (orderItems[itemIndex].quantity <= 0) {
+            // Remove item completely
+            orderItems.splice(itemIndex, 1);
+            
+            // Reset UI
+            const quantityControls = event.target.closest('.quantity-controls');
+            const addBtn = quantityControls.parentElement.querySelector('.add-item-btn');
+            quantityControls.style.display = 'none';
+            addBtn.style.display = 'block';
+        } else {
+            // Update quantity display
+            const quantityDisplay = event.target.closest('.quantity-controls').querySelector('.quantity-display');
+            quantityDisplay.textContent = orderItems[itemIndex].quantity;
+        }
+        
+        updateOrderDisplay();
+    }
+}
+
+// Update order display
+function updateOrderDisplay() {
+    const orderItemsContainer = document.getElementById('orderItems');
+    
+    // Clear existing items
+    orderItemsContainer.innerHTML = '';
+    
+    if (orderItems.length === 0) {
+        orderItemsContainer.innerHTML = `
+            <div class="text-muted text-center py-3">
+                <i class="fas fa-shopping-cart fa-2x mb-2 d-block"></i>
+                No items added yet
+            </div>
+        `;
+        document.getElementById('submitOrder').disabled = true;
+    } else {
+        orderItems.forEach((item, index) => {
+            const itemElement = document.createElement('div');
+            itemElement.className = 'order-item d-flex justify-content-between align-items-center py-2 border-bottom';
+            itemElement.innerHTML = `
+                <div>
+                    <div class="fw-medium">${item.name}</div>
+                    <small class="text-muted">${item.quantity} × $${item.price.toFixed(2)}</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="fw-bold text-success me-2">$${(item.quantity * item.price).toFixed(2)}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            orderItemsContainer.appendChild(itemElement);
+        });
+        
+        document.getElementById('submitOrder').disabled = false;
+    }
+    
+    // Update totals
+    updateTotals();
+    
+    // Update hidden form fields
+    document.getElementById('orderItemsData').value = JSON.stringify(orderItems);
+    document.getElementById('totalAmount').value = orderTotal.toFixed(2);
+}
+
+// Remove item from order
+function removeItem(index) {
+    const removedItem = orderItems[index];
+    orderItems.splice(index, 1);
+    
+    // Reset UI for this item
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(menuItem => {
+        const addBtn = menuItem.querySelector('.add-item-btn');
+        const quantityControls = menuItem.querySelector('.quantity-controls');
+        
+        if (addBtn && addBtn.getAttribute('onclick').includes(removedItem.id)) {
+            quantityControls.style.display = 'none';
+            addBtn.style.display = 'block';
+        }
+    });
+    
+    updateOrderDisplay();
+}
+
+// Update totals
+function updateTotals() {
+    const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const tax = subtotal * 0.08; // 8% tax
+    const total = subtotal + tax;
+    
+    document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+    document.getElementById('tax').textContent = '$' + tax.toFixed(2);
+    document.getElementById('total').textContent = '$' + total.toFixed(2);
+    
+    orderTotal = total;
+}
+
+// Category filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryButtons = document.querySelectorAll('[data-category]');
+    const menuItems = document.querySelectorAll('.menu-item');
+    
+    categoryButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const category = this.getAttribute('data-category');
+            
+            // Update active button
+            categoryButtons.forEach(btn => {
+                btn.classList.remove('btn-primary', 'active');
+                btn.classList.add('btn-outline-secondary');
+            });
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('btn-primary', 'active');
+            
+            // Filter items
+            menuItems.forEach(item => {
+                const itemCategory = item.getAttribute('data-category');
+                if (category === 'all' || itemCategory === category) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+
+// Form submission
+document.getElementById('orderForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (orderItems.length === 0) {
+        alert('Please add at least one item to the order.');
+        return;
+    }
+    
+    const customerName = document.querySelector('[name="customer_name"]').value.trim();
+    if (!customerName) {
+        alert('Please enter customer name.');
+        return;
+    }
+    
+    const tableId = document.querySelector('[name="table_id"]').value;
+    if (!tableId) {
+        alert('Please select a table.');
+        return;
+    }
+    
+    // Submit form
+    const submitBtn = document.getElementById('submitOrder');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Order...';
+    
+    fetch(this.action || window.location.href, {
+        method: 'POST',
+        body: new FormData(this)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Order created successfully!');
+            if (data.order_id) {
+                window.location.href = `/orders/${data.order_id}`;
+            } else {
+                window.location.href = "{{ url_for('orders_list') }}";
+            }
+        } else {
+            alert('Error: ' + (data.error || 'Failed to create order'));
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus me-2"></i>Create Order';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create order. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-plus me-2"></i>Create Order';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+
+{% block title %}Menu - Ali Restaurant Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .menu-item-card {
+        transition: var(--transition);
+        height: 100%;
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        background: white;
+    }
+    
+    .menu-item-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--box-shadow-hover);
+    }
+    
+    .price-tag {
+        font-size: 1.4rem;
+        font-weight: 700;
+        background: var(--success-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .cart-sidebar {
+        position: fixed;
+        right: 0;
+        top: 0;
+        width: 380px;
+        height: 100vh;
+        background: white;
+        border-left: 3px solid var(--primary-color);
+        transform: translateX(100%);
+        transition: var(--transition);
+        z-index: 1050;
+        overflow-y: auto;
+        box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+    }
+    
+    .cart-sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .cart-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(5px);
+        z-index: 1040;
+        display: none;
+        opacity: 0;
+        transition: var(--transition);
+    }
+    
+    .cart-overlay.show {
+        display: block;
+        opacity: 1;
+    }
+    
+    .cart-item {
+        border-bottom: 1px solid #f8f9fa;
+        padding: 1.2rem 0;
+        transition: var(--transition);
+    }
+    
+    .cart-item:hover {
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin: 0 -0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .quantity-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .quantity-btn {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        border: 2px solid var(--primary-color);
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: var(--transition);
+        font-weight: 600;
+    }
+    
+    .quantity-btn:hover {
+        background: var(--primary-gradient);
+        color: white;
+        transform: scale(1.1);
+    }
+    
+    .cart-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: var(--danger-gradient);
+        color: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    
+    .category-filters {
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        margin-bottom: 2rem;
+    }
+    
+    .category-filters .btn {
+        margin: 0.3rem;
+        border-radius: 25px;
+        transition: var(--transition);
+    }
+    
+    .category-filters .btn.active {
+        background: var(--primary-gradient);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .cart-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1.5rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .cart-total-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        margin: 1rem -1.5rem;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+    }
+    
+    .menu-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 3rem;
+        border-radius: 0 0 30px 30px;
+    }
+
+    @media (max-width: 768px) {
+        .cart-sidebar {
+            width: 100%;
+        }
+        
+        .menu-header {
+            padding: 2rem 0;
+        }
+        
+        .menu-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="menu-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4 fw-bold mb-3">
+                    <i class="fas fa-utensils me-3"></i> 
+                    Our Delicious Menu
+                </h1>
+                <p class="lead mb-0">Discover our amazing dishes and place your order instantly</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <button class="btn btn-light btn-lg me-3" id="cartToggle">
+                    <i class="fas fa-shopping-cart position-relative">
+                        <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
+                    </i>
+                    Cart
+                </button>
+                <a href="{{ url_for('add_menu_item') }}" class="btn btn-warning btn-lg">
+                    <i class="fas fa-plus"></i> Add Item
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Category Filter -->
+    <div class="category-filters slide-up">
+        <h5 class="mb-3 fw-bold">
+            <i class="fas fa-filter me-2"></i>
+            Filter by Category
+        </h5>
+        <div class="btn-group-toggle">
+            <button type="button" class="btn btn-outline-primary active" data-category="all">
+                <i class="fas fa-th-large me-2"></i>All Categories
+            </button>
+            {% for category in categories %}
+                <button type="button" class="btn btn-outline-primary" data-category="{{ category.id }}">
+                    <i class="fas fa-tag me-2"></i>{{ category.name }}
+                </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Menu Items -->
+    <div class="row g-4" id="menuItems">
+        {% for item in menu_items %}
+            <div class="col-xl-3 col-lg-4 col-md-6 menu-item slide-up" data-category="{{ item.category_id }}" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
+                <div class="card menu-item-card h-100">
+                    {% if item.image_url %}
+                        <img src="{{ item.image_url }}" class="card-img-top" alt="{{ item.name }}" style="height: 220px; object-fit: cover;">
+                    {% else %}
+                        <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 220px; background: var(--primary-gradient);">
+                            <i class="fas fa-utensils fa-4x text-white"></i>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title fw-bold text-dark">{{ item.name }}</h5>
+                        <p class="card-text flex-grow-1 text-muted">{{ item.description }}</p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="price-tag">${{ "%.2f"|format(item.price) }}</span>
+                            <span class="badge {{ 'bg-success' if item.is_available else 'bg-danger' }} fs-6 px-3 py-2">
+                                <i class="fas fa-{{ 'check' if item.is_available else 'times' }} me-1"></i>
+                                {{ 'Available' if item.is_available else 'Unavailable' }}
+                            </span>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            {% if item.is_available %}
+                                <button class="btn btn-success btn-lg add-to-cart" 
+                                        data-id="{{ item.id }}"
+                                        data-name="{{ item.name }}"
+                                        data-price="{{ item.price }}"
+                                        data-description="{{ item.description }}">
+                                    <i class="fas fa-plus me-2"></i> Add to Cart
+                                </button>
+                            {% else %}
+                                <button class="btn btn-secondary btn-lg" disabled>
+                                    <i class="fas fa-times me-2"></i> Unavailable
+                                </button>
+                            {% endif %}
+                            
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_menu_item', id=item.id) }}" class="btn btn-outline-warning">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <a href="{{ url_for('delete_menu_item', id=item.id) }}" 
+                                   class="btn btn-outline-danger"
+                                   onclick="return confirm('Are you sure you want to delete this menu item?')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if not menu_items %}
+        <div class="row">
+            <div class="col-12 text-center py-5">
+                <div class="card">
+                    <div class="card-body py-5">
+                        <i class="fas fa-utensils fa-4x text-muted mb-4"></i>
+                        <h3 class="text-muted mb-3">No Menu Items Found</h3>
+                        <p class="text-muted mb-4">Get started by adding your first delicious menu item</p>
+                        <a href="{{ url_for('add_menu_item') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus me-2"></i>Add Your First Menu Item
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Cart Overlay -->
+<div class="cart-overlay" id="cartOverlay"></div>
+
+<!-- Cart Sidebar -->
+<div class="cart-sidebar" id="cartSidebar">
+    <div class="cart-header">
+        <h4 class="mb-0 fw-bold">
+            <i class="fas fa-shopping-cart me-2"></i> 
+            Your Order
+            <button class="btn-close btn-close-white float-end" id="closeCart"></button>
+        </h4>
+    </div>
+    
+    <div class="p-4">
+        <!-- Cart Items -->
+        <div id="cartItems">
+            <div class="text-center text-muted py-5" id="emptyCart">
+                <i class="fas fa-shopping-cart fa-4x mb-4 opacity-50"></i>
+                <h5 class="text-muted">Your cart is empty</h5>
+                <p class="text-muted">Add some delicious items to get started!</p>
+            </div>
+        </div>
+        
+        <!-- Cart Total -->
+        <div id="cartTotal" style="display: none;">
+            <div class="cart-total-section">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold text-dark">Total:</h4>
+                    <h3 class="fw-bold price-tag">$<span id="totalAmount">0.00</span></h3>
+                </div>
+                
+                <!-- Order Form -->
+                <form id="orderForm" class="needs-validation" novalidate>
+                    <div class="mb-4">
+                        <label for="customerName" class="form-label fw-bold">Customer Name</label>
+                        <input type="text" class="form-control form-control-lg" id="customerName" 
+                               placeholder="Enter customer name" required>
+                        <div class="invalid-feedback">Please enter customer name.</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="tableSelect" class="form-label fw-bold">Select Table</label>
+                        <select class="form-select form-select-lg" id="tableSelect" required>
+                            <option value="">Choose a table...</option>
+                            {% for table in tables if not table.is_occupied %}
+                                <option value="{{ table.id }}">
+                                    Table {{ table.number }} (Seats {{ table.capacity }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Please select a table.</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success btn-lg w-100 py-3">
+                        <i class="fas fa-check-circle me-2"></i> 
+                        Place Order
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Cart functionality
+    let cart = [];
+    let cartBadge = document.getElementById('cartBadge');
+    let cartItems = document.getElementById('cartItems');
+    let emptyCart = document.getElementById('emptyCart');
+    let cartTotal = document.getElementById('cartTotal');
+    let totalAmount = document.getElementById('totalAmount');
+    
+    // Event listeners
+    document.getElementById('cartToggle').addEventListener('click', toggleCart);
+    document.getElementById('closeCart').addEventListener('click', closeCart);
+    document.getElementById('cartOverlay').addEventListener('click', closeCart);
+    
+    // Add to cart buttons
+    document.querySelectorAll('.add-to-cart').forEach(button => {
+        button.addEventListener('click', addToCart);
+    });
+    
+    // Category filters
+    document.querySelectorAll('[data-category]').forEach(button => {
+        button.addEventListener('click', filterByCategory);
+    });
+    
+    // Order form submission
+    document.getElementById('orderForm').addEventListener('submit', placeOrder);
+    
+    function addToCart(e) {
+        const button = e.target.closest('.add-to-cart');
+        const item = {
+            id: parseInt(button.dataset.id),
+            name: button.dataset.name,
+            price: parseFloat(button.dataset.price),
+            description: button.dataset.description,
+            quantity: 1
+        };
+        
+        // Check if item already in cart
+        const existingItem = cart.find(cartItem => cartItem.id === item.id);
+        if (existingItem) {
+            existingItem.quantity++;
+        } else {
+            cart.push(item);
+        }
+        
+        updateCartUI();
+        
+        // Show success animation
+        button.innerHTML = '<i class="fas fa-check me-2"></i> Added!';
+        button.classList.remove('btn-success');
+        button.classList.add('btn-primary');
+        
+        setTimeout(() => {
+            button.innerHTML = '<i class="fas fa-plus me-2"></i> Add to Cart';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+        }, 1000);
+    }
+    
+    function removeFromCart(id) {
+        cart = cart.filter(item => item.id !== id);
+        updateCartUI();
+    }
+    
+    function updateQuantity(id, change) {
+        const item = cart.find(cartItem => cartItem.id === id);
+        if (item) {
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                removeFromCart(id);
+            } else {
+                updateCartUI();
+            }
+        }
+    }
+    
+    function updateCartUI() {
+        // Update cart badge
+        const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+        if (itemCount > 0) {
+            cartBadge.textContent = itemCount;
+            cartBadge.style.display = 'flex';
+            emptyCart.style.display = 'none';
+            cartTotal.style.display = 'block';
+        } else {
+            cartBadge.style.display = 'none';
+            emptyCart.style.display = 'block';
+            cartTotal.style.display = 'none';
+        }
+        
+        // Update cart items
+        if (cart.length > 0) {
+            cartItems.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 fw-bold">${item.name}</h6>
+                            <small class="text-muted">$${item.price.toFixed(2)} each</small>
+                        </div>
+                        <button class="btn btn-link btn-sm text-danger p-0" onclick="removeFromCart(${item.id})" title="Remove item">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="quantity-controls">
+                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)" title="Decrease quantity">-</button>
+                        <span class="fw-bold fs-5 mx-3">${item.quantity}</span>
+                        <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)" title="Increase quantity">+</button>
+                        <div class="ms-auto">
+                            <strong class="fs-5" style="color: var(--success-color);">$${(item.price * item.quantity).toFixed(2)}</strong>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Update total
+        const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        totalAmount.textContent = total.toFixed(2);
+    }
+    
+    function toggleCart() {
+        document.getElementById('cartSidebar').classList.toggle('show');
+        document.getElementById('cartOverlay').classList.toggle('show');
+        document.body.classList.toggle('overflow-hidden');
+    }
+    
+    function closeCart() {
+        document.getElementById('cartSidebar').classList.remove('show');
+        document.getElementById('cartOverlay').classList.remove('show');
+        document.body.classList.remove('overflow-hidden');
+    }
+    
+    function filterByCategory(e) {
+        const category = e.target.dataset.category;
+        const menuItems = document.querySelectorAll('.menu-item');
+        
+        // Update active button
+        document.querySelectorAll('[data-category]').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // Show/hide items with animation
+        menuItems.forEach((item, index) => {
+            if (category === 'all' || item.dataset.category === category) {
+                item.style.display = 'block';
+                item.style.animationDelay = (index * 0.1) + 's';
+                item.classList.add('slide-up');
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    async function placeOrder(e) {
+        e.preventDefault();
+        
+        if (cart.length === 0) {
+            showAlert('Your cart is empty! Add some delicious items first.', 'warning');
+            return;
+        }
+        
+        const customerName = document.getElementById('customerName').value.trim();
+        const tableId = document.getElementById('tableSelect').value;
+        
+        // Validate required fields
+        if (!customerName) {
+            showAlert('Please enter customer name.', 'warning');
+            document.getElementById('customerName').focus();
+            return;
+        }
+        
+        if (!tableId) {
+            showAlert('Please select a table for your order.', 'warning');
+            document.getElementById('tableSelect').focus();
+            return;
+        }
+        
+        const form = e.target;
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing Order...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('customer_name', customerName);
+            formData.append('table_id', tableId);
+            formData.append('order_items', JSON.stringify(cart));
+            formData.append('total_amount', cart.reduce((sum, item) => sum + (item.price * item.quantity), 0));
+            
+            const response = await fetch('{{ url_for("add_order") }}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showAlert(`Order #${result.order_id} placed successfully!`, 'success');
+                cart = [];
+                updateCartUI();
+                closeCart();
+                form.reset();
+                
+                // Redirect to orders page
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("orders_list") }}';
+                }, 2000);
+            } else {
+                showAlert(result.error || 'Failed to place order. Please try again.', 'danger');
+            }
+        } catch (error) {
+            console.error('Error placing order:', error);
+            showAlert('Network error. Please check your connection and try again.', 'danger');
+        } finally {
+            // Reset button
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 350px; max-width: 500px; box-shadow: var(--box-shadow-hover);';
+        alertDiv.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : type === 'warning' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    // Initialize everything
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCartUI();
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeCart();
+            }
+        });
+    });
+</script>
+{% endblock %}

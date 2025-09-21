@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}Orders Management - Ali Restaurant{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-shopping-cart text-warning me-2"></i>Orders Management
+                    </h2>
+                    <p class="text-muted mb-0">Track and manage all restaurant orders</p>
+                </div>
+                <div class="mt-3 mt-md-0">
+                    <a href="{{ url_for('add_order') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plus me-2"></i>New Order
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Status Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="fw-medium me-3">Filter by status:</span>
+                        <button class="btn btn-sm btn-outline-primary active" data-status="all">
+                            <i class="fas fa-th-large me-1"></i>All Orders
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" data-status="pending">
+                            <i class="fas fa-clock me-1"></i>Pending
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" data-status="preparing">
+                            <i class="fas fa-fire me-1"></i>Preparing
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" data-status="ready">
+                            <i class="fas fa-check-circle me-1"></i>Ready
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" data-status="delivered">
+                            <i class="fas fa-truck me-1"></i>Delivered
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" data-status="cancelled">
+                            <i class="fas fa-times-circle me-1"></i>Cancelled
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    {% if orders %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list text-primary me-2"></i>All Orders
+                            <span class="badge bg-primary-subtle text-primary ms-2">{{ orders|length }}</span>
+                        </h5>
+                    </div>
+                    <div class="col-auto">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-0 bg-light" placeholder="Search orders..." id="searchInput">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="border-0 px-4">Order #</th>
+                                <th class="border-0">Customer</th>
+                                <th class="border-0">Table</th>
+                                <th class="border-0">Items</th>
+                                <th class="border-0">Total</th>
+                                <th class="border-0">Status</th>
+                                <th class="border-0">Created</th>
+                                <th class="border-0">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            {% for order in orders %}
+                            <tr class="order-row" data-status="{{ order.status }}">
+                                <td class="px-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="order-number">
+                                            <strong class="text-primary">#{{ order.id }}</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm bg-light rounded-circle d-flex align-items-center justify-content-center me-3">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-medium">{{ order.customer_name }}</div>
+                                            <small class="text-muted">Customer</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary fs-6">
+                                        <i class="fas fa-table me-1"></i>Table {{ order.table.number }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ order.table.capacity }} seats</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-shopping-bag text-muted me-2"></i>
+                                        <span class="fw-medium">{{ order.items|length }}</span>
+                                        <small class="text-muted ms-1">items</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-success fs-5">
+                                        ${{ "%.2f"|format(order.total_amount) }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('update_order_status', id=order.id) }}" class="d-inline status-form">
+                                        <select name="status" class="form-select form-select-sm status-select w-auto" 
+                                                onchange="updateOrderStatus(this, {{ order.id }})" 
+                                                data-current="{{ order.status }}">
+                                            <option value="pending" {{ 'selected' if order.status == 'pending' else '' }}>
+                                                🕐 Pending
+                                            </option>
+                                            <option value="preparing" {{ 'selected' if order.status == 'preparing' else '' }}>
+                                                🔥 Preparing
+                                            </option>
+                                            <option value="ready" {{ 'selected' if order.status == 'ready' else '' }}>
+                                                ✅ Ready
+                                            </option>
+                                            <option value="delivered" {{ 'selected' if order.status == 'delivered' else '' }}>
+                                                🚚 Delivered
+                                            </option>
+                                            <option value="cancelled" {{ 'selected' if order.status == 'cancelled' else '' }}>
+                                                ❌ Cancelled
+                                            </option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    <div>
+                                        <div class="fw-medium">{{ order.created_at.strftime('%Y-%m-%d') }}</div>
+                                        <small class="text-muted">{{ order.created_at.strftime('%H:%M') }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" id="dropdownMenuButton{{ order.id }}" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-cog"></i>
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ order.id }}">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('order_details', id=order.id) }}">
+                                                    <i class="fas fa-eye me-2 text-info"></i>View Details
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            {% if order.status == 'pending' %}
+                                            <li>
+                                                <a class="dropdown-item text-info" href="#" 
+                                                   onclick="quickStatusUpdate({{ order.id }}, 'preparing')">
+                                                    <i class="fas fa-fire me-2"></i>Start Preparing
+                                                </a>
+                                            </li>
+                                            {% elif order.status == 'preparing' %}
+                                            <li>
+                                                <a class="dropdown-item text-success" href="#" 
+                                                   onclick="quickStatusUpdate({{ order.id }}, 'ready')">
+                                                    <i class="fas fa-check me-2"></i>Mark Ready
+                                                </a>
+                                            </li>
+                                            {% elif order.status == 'ready' %}
+                                            <li>
+                                                <a class="dropdown-item text-primary" href="#" 
+                                                   onclick="quickStatusUpdate({{ order.id }}, 'delivered')">
+                                                    <i class="fas fa-truck me-2"></i>Mark Delivered
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#" 
+                                                   onclick="quickStatusUpdate({{ order.id }}, 'cancelled')">
+                                                    <i class="fas fa-times me-2"></i>Cancel Order
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Summary -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-bar text-info me-2"></i>Orders Summary
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-warning mb-1">{{ orders | selectattr('status', 'equalto', 'pending') | list | length }}</h4>
+                                    <p class="text-muted mb-0">Pending</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-info mb-1">{{ orders | selectattr('status', 'equalto', 'preparing') | list | length }}</h4>
+                                    <p class="text-muted mb-0">Preparing</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-success mb-1">{{ orders | selectattr('status', 'equalto', 'ready') | list | length }}</h4>
+                                    <p class="text-muted mb-0">Ready</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-secondary mb-1">{{ orders | selectattr('status', 'equalto', 'delivered') | list | length }}</h4>
+                                    <p class="text-muted mb-0">Delivered</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-danger mb-1">{{ orders | selectattr('status', 'equalto', 'cancelled') | list | length }}</h4>
+                                    <p class="text-muted mb-0">Cancelled</p>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <h4 class="text-primary mb-1">${{ "%.0f"|format(orders | sum(attribute='total_amount')) }}</h4>
+                                    <p class="text-muted mb-0">Total Revenue</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted mb-3">No orders yet</h4>
+                <p class="text-muted mb-4">Start by creating your first order to see it listed here.</p>
+                <a href="{{ url_for('add_order') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>Create Your First Order
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Status Update Confirmation Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">
+                    <i class="fas fa-sync-alt me-2"></i>Update Order Status
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="status-icon mb-3">
+                    <i class="fas fa-question-circle fa-3x text-info"></i>
+                </div>
+                <h5 id="statusQuestion">Are you sure?</h5>
+                <p class="text-muted" id="statusMessage">Do you want to update the order status?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmStatusUpdate">
+                    <i class="fas fa-check me-2"></i>Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Status filtering functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filterButtons = document.querySelectorAll('[data-status]');
+    const orderRows = document.querySelectorAll('.order-row');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const status = this.getAttribute('data-status');
+            
+            // Update active button
+            filterButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.classList.contains('btn-outline-primary')) {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-primary');
+                }
+            });
+            
+            this.classList.add('active');
+            if (this.classList.contains('btn-outline-primary')) {
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('btn-primary');
+            }
+            
+            // Filter orders
+            orderRows.forEach(row => {
+                const orderStatus = row.getAttribute('data-status');
+                if (status === 'all' || orderStatus === status) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    const rows = document.querySelectorAll('.order-row');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Quick status update functionality
+function quickStatusUpdate(orderId, newStatus) {
+    const statusNames = {
+        'pending': '🕐 Pending',
+        'preparing': '🔥 Preparing', 
+        'ready': '✅ Ready',
+        'delivered': '🚚 Delivered',
+        'cancelled': '❌ Cancelled'
+    };
+    
+    document.getElementById('statusQuestion').textContent = `Update to ${statusNames[newStatus]}?`;
+    document.getElementById('statusMessage').textContent = `Order #${orderId} will be marked as ${newStatus}.`;
+    
+    const confirmBtn = document.getElementById('confirmStatusUpdate');
+    confirmBtn.onclick = function() {
+        updateOrderStatus(null, orderId, newStatus);
+        bootstrap.Modal.getInstance(document.getElementById('statusModal')).hide();
+    };
+    
+    const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+    statusModal.show();
+}
+
+// Update order status function
+function updateOrderStatus(selectElement, orderId, newStatus = null) {
+    const status = newStatus || selectElement.value;
+    const currentStatus = selectElement ? selectElement.getAttribute('data-current') : null;
+    
+    if (status === currentStatus) return; // No change
+    
+    // Show loading state
+    if (selectElement) {
+        selectElement.disabled = true;
+        selectElement.style.opacity = '0.6';
+    }
+    
+    fetch(`/orders/${orderId}/update_status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `status=${status}`
+    })
+    .then(response => {
+        if (response.ok) {
+            // Show success message
+            showToast('Order status updated successfully!', 'success');
+            
+            // Update the row data attribute
+            const row = document.querySelector(`tr[data-status]`);
+            if (row) {
+                row.setAttribute('data-status', status);
+            }
+            
+            // Update select element
+            if (selectElement) {
+                selectElement.setAttribute('data-current', status);
+                selectElement.disabled = false;
+                selectElement.style.opacity = '1';
+            }
+            
+            // Refresh page after a short delay to show updated data
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error('Failed to update status');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to update order status', 'error');
+        
+        // Reset select element
+        if (selectElement) {
+            selectElement.value = currentStatus;
+            selectElement.disabled = false;
+            selectElement.style.opacity = '1';
+        }
+    });
+}
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    // Remove existing toast
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show toast-notification position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1060; min-width: 300px;';
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// Real-time order updates (optional - for future enhancement)
+function startOrderUpdates() {
+    setInterval(() => {
+        // Fetch latest order data and update table
+        // This would require an API endpoint that returns order updates
+        console.log('Checking for order updates...');
+    }, 30000); // Check every 30 seconds
+}
+
+// Initialize real-time updates
+// startOrderUpdates();
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl + N for new order
+    if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        window.location.href = "{{ url_for('add_order') }}";
+    }
+    
+    // Escape key to clear search
+    if (e.key === 'Escape') {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput.value) {
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input'));
+        }
+    }
+});
+
+// Table row click to view details
+document.querySelectorAll('.order-row').forEach(row => {
+    row.addEventListener('click', function(e) {
+        // Don't trigger if clicking on dropdown or select
+        if (e.target.closest('.dropdown') || e.target.closest('select')) {
+            return;
+        }
+        
+        const orderId = this.querySelector('.text-primary').textContent.replace('#', '');
+        window.location.href = `/orders/${orderId}`;
+    });
+    
+    // Add hover effect
+    row.style.cursor = 'pointer';
+    row.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#f8f9fa';
+    });
+    
+    row.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+    });
+});
+
+// Print order functionality
+function printOrder(orderId) {
+    window.open(`/orders/${orderId}/print`, '_blank');
+}
+
+// Bulk actions (future enhancement)
+function selectAllOrders() {
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+});
+</script>
+{% endblock %}

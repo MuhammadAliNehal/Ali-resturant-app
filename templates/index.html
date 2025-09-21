@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Ali Restaurant Management System{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center min-vh-100">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4 text-white">
+                    Welcome to Ali Restaurant
+                </h1>
+                <p class="lead mb-4 text-white-50">
+                    Complete Restaurant Management System
+                </p>
+                <p class="mb-5 text-white-50">
+                    Manage your restaurant operations efficiently with our comprehensive system featuring 
+                    menu management, order tracking, table management, and real-time analytics.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-4">
+                        <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
+                    </a>
+                    <a href="{{ url_for('menu_list') }}" class="btn btn-outline-light btn-lg px-4">
+                        <i class="fas fa-utensils me-2"></i> View Menu
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="features-grid mt-5 mt-lg-0">
+                    <div class="feature-card">
+                        <i class="fas fa-utensils fa-3x mb-3"></i>
+                        <h5 class="mb-3">Menu Management</h5>
+                        <p class="text-white-50">
+                            Add, edit, and organize your menu items with categories and pricing
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                        <h5 class="mb-3">Order Tracking</h5>
+                        <p class="text-white-50">
+                            Track orders from placement to delivery with real-time status updates
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-table fa-3x mb-3"></i>
+                        <h5 class="mb-3">Table Management</h5>
+                        <p class="text-white-50">
+                            Manage table availability, capacity, and customer seating efficiently
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                        <h5 class="mb-3">Analytics Dashboard</h5>
+                        <p class="text-white-50">
+                            View sales reports, revenue analytics, and restaurant performance metrics
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col-lg-6 mx-auto">
+                <h2 class="display-6 fw-bold mb-3">Why Choose Ali Restaurant System?</h2>
+                <p class="lead text-muted">
+                    Built with modern technology and designed for efficiency
+                </p>
+            </div>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-rocket text-white fa-lg"></i>
+                        </div>
+                        <h5 class="card-title">Fast & Efficient</h5>
+                        <p class="card-text text-muted">
+                            Streamlined operations with intuitive interface for quick order processing
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-mobile-alt text-white fa-lg"></i>
+                        </div>
+                        <h5 class="card-title">Mobile Responsive</h5>
+                        <p class="card-text text-muted">
+                            Access your restaurant data from any device - desktop, tablet, or mobile
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-shield-alt text-white fa-lg"></i>
+                        </div>
+                        <h5 class="card-title">Secure & Reliable</h5>
+                        <p class="card-text text-muted">
+                            Built with security best practices and reliable cloud infrastructure
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Stats Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-3 mb-4">
+                <div class="stat-card">
+                    <i class="fas fa-utensils text-primary fa-2x mb-3"></i>
+                    <h3 class="fw-bold">Menu Items</h3>
+                    <p class="text-muted">Organize & manage your complete menu</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="stat-card">
+                    <i class="fas fa-shopping-cart text-success fa-2x mb-3"></i>
+                    <h3 class="fw-bold">Orders</h3>
+                    <p class="text-muted">Track orders from kitchen to customer</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="stat-card">
+                    <i class="fas fa-table text-info fa-2x mb-3"></i>
+                    <h3 class="fw-bold">Tables</h3>
+                    <p class="text-muted">Manage seating & table availability</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="stat-card">
+                    <i class="fas fa-chart-line text-warning fa-2x mb-3"></i>
+                    <h3 class="fw-bold">Analytics</h3>
+                    <p class="text-muted">Revenue insights & performance metrics</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="py-5 bg-primary text-white">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-lg-8 mx-auto">
+                <h2 class="display-6 fw-bold mb-3">Ready to Get Started?</h2>
+                <p class="lead mb-4">
+                    Transform your restaurant operations with our comprehensive management system
+                </p>
+                <div class="d-flex flex-wrap justify-content-center gap-3">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg px-4">
+                        <i class="fas fa-play me-2"></i> Start Managing
+                    </a>
+                    <a href="{{ url_for('add_order') }}" class="btn btn-outline-light btn-lg px-4">
+                        <i class="fas fa-plus me-2"></i> Create First Order
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add smooth scrolling for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector(this.getAttribute('href')).scrollIntoView({
+            behavior: 'smooth'
+        });
+    });
+});
+
+// Add loading animation for buttons
+document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        if (this.href && !this.href.includes('#')) {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+        }
+    });
+});
+</script>
+{% endblock %}

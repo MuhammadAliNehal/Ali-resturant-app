@@ -1,0 +1,559 @@
+.menu-item-card {
+            transition: var(--transition);
+            height: 100%;
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+            background: white;
+        }
+        
+        .menu-item-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--box-shadow-hover);
+        }
+        
+        .price-tag {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .cart-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 380px;
+            height: 100vh;
+            background: white;
+            border-left: 3px solid var(--primary-color);
+            transform: translateX(100%);
+            transition: var(--transition);
+            z-index: 1050;
+            overflow-y: auto;{% extends "base.html" %}
+
+{% block title %}Menu - Ali Restaurant Management{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .menu-item-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            height: 100%;
+        }
+        .menu-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .price-tag {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .cart-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: white;
+            border-left: 1px solid #ddd;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1050;
+            overflow-y: auto;
+        }
+        .cart-sidebar.show {
+            transform: translateX(0);
+        }
+        .cart-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+            display: none;
+        }
+        .cart-overlay.show {
+            display: block;
+        }
+        .cart-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .quantity-btn:hover {
+            background: #f8f9fa;
+        }
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-utensils"></i> Restaurant Management
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link active" href="{{ url_for('menu_list') }}">Menu</a>
+                <a class="nav-link" href="{{ url_for('orders_list') }}">Orders</a>
+                <a class="nav-link" href="{{ url_for('tables_list') }}">Tables</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid py-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1><i class="fas fa-utensils"></i> Restaurant Menu</h1>
+                <p class="text-muted">Browse our delicious menu items and place your order</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-outline-primary me-2" id="cartToggle">
+                    <i class="fas fa-shopping-cart position-relative">
+                        <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
+                    </i>
+                    Cart
+                </button>
+                <a href="{{ url_for('add_menu_item') }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Add Menu Item
+                </a>
+            </div>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" data-category="all">All Categories</button>
+                    {% for category in categories %}
+                        <button type="button" class="btn btn-outline-secondary" data-category="{{ category.id }}">
+                            {{ category.name }}
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Items -->
+        <div class="row" id="menuItems">
+            {% for item in menu_items %}
+                <div class="col-lg-3 col-md-4 col-sm-6 mb-4 menu-item" data-category="{{ item.category_id }}">
+                    <div class="card menu-item-card h-100">
+                        {% if item.image_url %}
+                            <img src="{{ item.image_url }}" class="card-img-top" alt="{{ item.name }}" style="height: 200px; object-fit: cover;">
+                        {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                <i class="fas fa-utensils fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">{{ item.name }}</h5>
+                            <p class="card-text flex-grow-1">{{ item.description }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="price-tag">${{ "%.2f"|format(item.price) }}</span>
+                                <span class="badge bg-{{ 'success' if item.is_available else 'danger' }}">
+                                    {{ 'Available' if item.is_available else 'Unavailable' }}
+                                </span>
+                            </div>
+                            
+                            <div class="mt-3">
+                                {% if item.is_available %}
+                                    <button class="btn btn-primary w-100 add-to-cart" 
+                                            data-id="{{ item.id }}"
+                                            data-name="{{ item.name }}"
+                                            data-price="{{ item.price }}"
+                                            data-description="{{ item.description }}">
+                                        <i class="fas fa-plus"></i> Add to Cart
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-secondary w-100" disabled>
+                                        <i class="fas fa-times"></i> Unavailable
+                                    </button>
+                                {% endif %}
+                                
+                                <div class="btn-group w-100 mt-2">
+                                    <a href="{{ url_for('edit_menu_item', id=item.id) }}" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <a href="{{ url_for('delete_menu_item', id=item.id) }}" 
+                                       class="btn btn-outline-danger btn-sm"
+                                       onclick="return confirm('Are you sure you want to delete this menu item?')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if not menu_items %}
+            <div class="row">
+                <div class="col-12 text-center">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No menu items found. 
+                        <a href="{{ url_for('add_menu_item') }}">Add your first menu item</a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Cart Overlay -->
+    <div class="cart-overlay" id="cartOverlay"></div>
+
+    <!-- Cart Sidebar -->
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="p-3 border-bottom">
+            <h5 class="mb-0">
+                <i class="fas fa-shopping-cart"></i> Your Order
+                <button class="btn-close float-end" id="closeCart"></button>
+            </h5>
+        </div>
+        
+        <div class="p-3">
+            <!-- Cart Items -->
+            <div id="cartItems">
+                <div class="text-center text-muted py-4" id="emptyCart">
+                    <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                    <p>Your cart is empty</p>
+                </div>
+            </div>
+            
+            <!-- Cart Total -->
+            <div id="cartTotal" style="display: none;">
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <strong>Total: $<span id="totalAmount">0.00</span></strong>
+                </div>
+                
+                <!-- Order Form -->
+                <form id="orderForm">
+                    <div class="mb-3">
+                        <label for="customerName" class="form-label">Customer Name</label>
+                        <input type="text" class="form-control" id="customerName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="tableSelect" class="form-label">Select Table</label>
+                        <select class="form-select" id="tableSelect" required>
+                            <option value="">Choose a table...</option>
+                            {% for table in tables if not table.is_occupied %}
+                                <option value="{{ table.id }}">Table {{ table.number }} (Capacity: {{ table.capacity }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-check"></i> Place Order
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Cart functionality
+        let cart = [];
+        let cartBadge = document.getElementById('cartBadge');
+        let cartItems = document.getElementById('cartItems');
+        let emptyCart = document.getElementById('emptyCart');
+        let cartTotal = document.getElementById('cartTotal');
+        let totalAmount = document.getElementById('totalAmount');
+        
+        // Event listeners
+        document.getElementById('cartToggle').addEventListener('click', toggleCart);
+        document.getElementById('closeCart').addEventListener('click', closeCart);
+        document.getElementById('cartOverlay').addEventListener('click', closeCart);
+        
+        // Add to cart buttons
+        document.querySelectorAll('.add-to-cart').forEach(button => {
+            button.addEventListener('click', addToCart);
+        });
+        
+        // Category filters
+        document.querySelectorAll('[data-category]').forEach(button => {
+            button.addEventListener('click', filterByCategory);
+        });
+        
+        // Order form submission
+        document.getElementById('orderForm').addEventListener('submit', placeOrder);
+        
+        function addToCart(e) {
+            const button = e.target.closest('.add-to-cart');
+            const item = {
+                id: parseInt(button.dataset.id),
+                name: button.dataset.name,
+                price: parseFloat(button.dataset.price),
+                description: button.dataset.description,
+                quantity: 1
+            };
+            
+            // Check if item already in cart
+            const existingItem = cart.find(cartItem => cartItem.id === item.id);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push(item);
+            }
+            
+            updateCartUI();
+            showSuccessMessage(`${item.name} added to cart!`);
+        }
+        
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartUI();
+        }
+        
+        function updateQuantity(id, change) {
+            const item = cart.find(cartItem => cartItem.id === id);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    removeFromCart(id);
+                } else {
+                    updateCartUI();
+                }
+            }
+        }
+        
+        function updateCartUI() {
+            // Update cart badge
+            const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            if (itemCount > 0) {
+                cartBadge.textContent = itemCount;
+                cartBadge.style.display = 'flex';
+                emptyCart.style.display = 'none';
+                cartTotal.style.display = 'block';
+            } else {
+                cartBadge.style.display = 'none';
+                emptyCart.style.display = 'block';
+                cartTotal.style.display = 'none';
+            }
+            
+            // Update cart items
+            if (cart.length > 0) {
+                cartItems.innerHTML = cart.map(item => `
+                    <div class="cart-item">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${item.name}</h6>
+                                <small class="text-muted">$${item.price.toFixed(2)} each</small>
+                            </div>
+                            <button class="btn btn-link btn-sm text-danger p-0" onclick="removeFromCart(${item.id})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                            <span class="mx-2">${item.quantity}</span>
+                            <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
+                            <div class="ms-auto">
+                                <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Update total
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            totalAmount.textContent = total.toFixed(2);
+        }
+        
+        function toggleCart() {
+            document.getElementById('cartSidebar').classList.toggle('show');
+            document.getElementById('cartOverlay').classList.toggle('show');
+        }
+        
+        function closeCart() {
+            document.getElementById('cartSidebar').classList.remove('show');
+            document.getElementById('cartOverlay').classList.remove('show');
+        }
+        
+        function filterByCategory(e) {
+            const category = e.target.dataset.category;
+            const menuItems = document.querySelectorAll('.menu-item');
+            
+            // Update active button
+            document.querySelectorAll('[data-category]').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Show/hide items
+            menuItems.forEach(item => {
+                if (category === 'all' || item.dataset.category === category) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        async function placeOrder(e) {
+            e.preventDefault();
+            
+            if (cart.length === 0) {
+                showErrorMessage('Your cart is empty!');
+                return;
+            }
+            
+            const customerName = document.getElementById('customerName').value;
+            const tableId = document.getElementById('tableSelect').value;
+            
+            if (!customerName || !tableId) {
+                showErrorMessage('Please fill in all required fields!');
+                return;
+            }
+            
+            const orderData = {
+                customer_name: customerName,
+                table_id: tableId,
+                order_items: JSON.stringify(cart),
+                total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+            };
+            
+            try {
+                const formData = new FormData();
+                Object.keys(orderData).forEach(key => {
+                    formData.append(key, orderData[key]);
+                });
+                
+                const response = await fetch('{{ url_for("add_order") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage('Order placed successfully!');
+                    cart = [];
+                    updateCartUI();
+                    closeCart();
+                    document.getElementById('orderForm').reset();
+                    
+                    // Redirect to orders page after a short delay
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for("orders_list") }}';
+                    }, 2000);
+                } else {
+                    showErrorMessage(result.error || 'Failed to place order');
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+                showErrorMessage('Failed to place order. Please try again.');
+            }
+        }
+        
+        function showSuccessMessage(message) {
+            showMessage(message, 'success');
+        }
+        
+        function showErrorMessage(message) {
+            showMessage(message, 'danger');
+        }
+        
+        function showMessage(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alertDiv, container.firstElementChild);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Load available tables on page load
+        async function loadTables() {
+            try {
+                const response = await fetch('{{ url_for("api_tables") }}');
+                const tables = await response.json();
+                const tableSelect = document.getElementById('tableSelect');
+                
+                tableSelect.innerHTML = '<option value="">Choose a table...</option>';
+                tables.filter(table => !table.is_occupied).forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table.id;
+                    option.textContent = `Table ${table.number} (Capacity: ${table.capacity})`;
+                    tableSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading tables:', error);
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartUI();
+            loadTables();
+        });
+    </script>
+</body>
+</html>
