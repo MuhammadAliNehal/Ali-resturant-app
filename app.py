@@ -6,19 +6,31 @@ from wtforms.validators import DataRequired, NumberRange
 from datetime import datetime
 import os
 import json
+import sys
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 
-# Database Configuration - Azure SQL Database
-if 'SQLAZURECONNSTR_DefaultConnection' in os.environ:
-    # Production - Azure SQL Database
-    connection_string = os.environ['SQLAZURECONNSTR_DefaultConnection']
-    app.config['SQLALCHEMY_DATABASE_URI'] = connection_string
-else:
-    # Development - SQLite
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurant.db'
+# Enhanced Database Configuration for Azure and Local
+def get_database_uri():
+    """Get appropriate database URI for environment"""
+    if 'SQLAZURECONNSTR_DefaultConnection' in os.environ:
+        # Production - Azure SQL Database
+        return os.environ['SQLAZURECONNSTR_DefaultConnection']
+    else:
+        # SQLite for development and Azure App Service
+        if os.environ.get('WEBSITE_SITE_NAME'):  
+            # Running on Azure App Service
+            db_path = '/tmp/restaurant.db'
+            print(f"Azure environment detected, using database at: {db_path}")
+        else:
+            # Running locally
+            db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'restaurant.db')
+            print(f"Local environment detected, using database at: {db_path}")
+        
+        return f'sqlite:///{db_path}'
 
+app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 300,
@@ -88,6 +100,142 @@ class OrderItem(db.Model):
     def __repr__(self):
         return f'<OrderItem {self.quantity}x {self.menu_item.name if self.menu_item else "Unknown"}>'
 
+# -------------------- SAMPLE DATA --------------------
+def create_sample_data():
+    """Create sample data for the restaurant"""
+    try:
+        print("Creating sample data...")
+        
+        # Create categories first
+        categories_data = [
+            {'name': 'Appetizers', 'description': 'Start your meal with these delicious appetizers'},
+            {'name': 'Main Course', 'description': 'Our signature main dishes'},
+            {'name': 'Desserts', 'description': 'Sweet endings to your meal'},
+            {'name': 'Beverages', 'description': 'Refreshing drinks and beverages'}
+        ]
+
+        for cat_data in categories_data:
+            if not Category.query.filter_by(name=cat_data['name']).first():
+                category = Category(**cat_data)
+                db.session.add(category)
+        
+        db.session.commit()
+        print("Categories created")
+
+        # Create menu items
+        main_course_cat = Category.query.filter_by(name='Main Course').first()
+        appetizer_cat = Category.query.filter_by(name='Appetizers').first()
+        dessert_cat = Category.query.filter_by(name='Desserts').first()
+        beverage_cat = Category.query.filter_by(name='Beverages').first()
+
+        if main_course_cat and appetizer_cat and dessert_cat and beverage_cat:
+            menu_items_data = [
+                {
+                    'name': 'Chicken Biryani',
+                    'description': 'Aromatic basmati rice with tender chicken pieces and traditional spices',
+                    'price': 15.99,
+                    'category_id': main_course_cat.id,
+                    'is_available': True
+                },
+                {
+                    'name': 'Beef Karahi',
+                    'description': 'Spicy beef curry cooked in traditional Pakistani style',
+                    'price': 18.99,
+                    'category_id': main_course_cat.id,
+                    'is_available': True
+                },
+                {
+                    'name': 'Chicken Tikka',
+                    'description': 'Grilled chicken marinated in yogurt and spices',
+                    'price': 12.99,
+                    'category_id': appetizer_cat.id,
+                    'is_available': True
+                },
+                {
+                    'name': 'Samosas (4 pieces)',
+                    'description': 'Crispy pastries filled with spiced potatoes and peas',
+                    'price': 6.99,
+                    'category_id': appetizer_cat.id,
+                    'is_available': True
+                },
+                {
+                    'name': 'Gulab Jamun',
+                    'description': 'Sweet milk dumplings in sugar syrup',
+                    'price': 5.99,
+                    'category_id': dessert_cat.id,
+                    'is_available': True
+                },
+                {
+                    'name': 'Mango Lassi',
+                    'description': 'Traditional yogurt drink with mango',
+                    'price': 4.99,
+                    'category_id': beverage_cat.id,
+                    'is_available': True
+                }
+            ]
+
+            for item_data in menu_items_data:
+                if not MenuItem.query.filter_by(name=item_data['name']).first():
+                    menu_item = MenuItem(**item_data)
+                    db.session.add(menu_item)
+        
+        print("Menu items created")
+
+        # Create tables
+        tables_data = [
+            {'number': 0, 'capacity': 1, 'is_occupied': False},  # Takeaway table
+            {'number': 1, 'capacity': 4, 'is_occupied': False},
+            {'number': 2, 'capacity': 2, 'is_occupied': False},
+            {'number': 3, 'capacity': 6, 'is_occupied': False},
+            {'number': 4, 'capacity': 4, 'is_occupied': False},
+            {'number': 5, 'capacity': 8, 'is_occupied': False}
+        ]
+
+        for table_data in tables_data:
+            if not Table.query.filter_by(number=table_data['number']).first():
+                table = Table(**table_data)
+                db.session.add(table)
+
+        db.session.commit()
+        print("Sample data created successfully!")
+        
+    except Exception as e:
+        print(f"Error creating sample data: {str(e)}")
+        db.session.rollback()
+        raise
+
+# -------------------- DATABASE INITIALIZATION --------------------
+def ensure_db_initialized():
+    """Ensure database is initialized - works in both local and Azure environments"""
+    try:
+        print("Checking database initialization...")
+        # Try to query tables to see if they exist
+        table_count = Table.query.count()
+        category_count = Category.query.count()
+        print(f"Database already initialized - Tables: {table_count}, Categories: {category_count}")
+        
+        # If no sample data exists, create it
+        if table_count == 0 or category_count == 0:
+            print("No sample data found, creating...")
+            create_sample_data()
+            
+    except Exception as e:
+        print(f"Database not initialized, creating tables: {str(e)}")
+        try:
+            db.create_all()
+            create_sample_data()
+            print("Database initialized successfully!")
+        except Exception as init_error:
+            print(f"Error initializing database: {str(init_error)}")
+            raise
+
+# Initialize database when app starts (works for both local and Azure)
+try:
+    with app.app_context():
+        ensure_db_initialized()
+except Exception as e:
+    print(f"Failed to initialize database on startup: {str(e)}")
+
 # -------------------- FORMS --------------------
 class MenuItemForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
@@ -116,7 +264,32 @@ def favicon():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        return f"<h1>Welcome to Ali Restaurant</h1><p>App is running! <a href='/dashboard'>Go to Dashboard</a></p>"
+
+@app.route('/test')
+def test():
+    """Test endpoint to verify app is running"""
+    try:
+        table_count = Table.query.count()
+        menu_count = MenuItem.query.count()
+        return f"Flask app is running on Azure! Tables: {table_count}, Menu Items: {menu_count}"
+    except Exception as e:
+        return f"Flask app is running but database error: {str(e)}"
+
+@app.route('/init-db-force')
+def init_db_force():
+    """Force database reinitialization - use only if needed"""
+    try:
+        print("Force reinitializing database...")
+        db.drop_all()
+        db.create_all()
+        create_sample_data()
+        return "Database forcefully reinitialized! All data was reset."
+    except Exception as e:
+        return f"Error reinitializing database: {str(e)}"
 
 @app.route('/dashboard')
 def dashboard():
@@ -308,17 +481,7 @@ def add_order():
         # Set form choices
         form.table_id.choices = [(t.id, f'Table {t.number} (Capacity: {t.capacity})') for t in available_tables]
         
-        if request.method == 'POST':
-            # Debug logging
-            print("=== ORDER FORM DEBUG ===")
-            print(f"Customer name: '{request.form.get('customer_name')}'")
-            print(f"Table ID: '{request.form.get('table_id')}'")
-            print(f"Order items: '{request.form.get('order_items')}'")
-            print(f"Total amount: '{request.form.get('total_amount')}'")
-            print(f"CSRF token present: {bool(request.form.get('csrf_token'))}")
-            print(f"Form errors: {form.errors}")
-            print("========================")
-            
+        if request.method == 'POST':            
             # Manual validation to provide better error messages
             customer_name = request.form.get('customer_name', '').strip()
             table_id = request.form.get('table_id')
@@ -708,103 +871,6 @@ def debug_data():
     except Exception as e:
         return f"Error: {str(e)}"
 
-# -------------------- SAMPLE DATA --------------------
-def create_sample_data():
-    try:
-        # Create categories first
-        categories_data = [
-            {'name': 'Appetizers', 'description': 'Start your meal with these delicious appetizers'},
-            {'name': 'Main Course', 'description': 'Our signature main dishes'},
-            {'name': 'Desserts', 'description': 'Sweet endings to your meal'},
-            {'name': 'Beverages', 'description': 'Refreshing drinks and beverages'}
-        ]
-
-        for cat_data in categories_data:
-            if not Category.query.filter_by(name=cat_data['name']).first():
-                category = Category(**cat_data)
-                db.session.add(category)
-        
-        db.session.commit()
-
-        # Create menu items
-        main_course_cat = Category.query.filter_by(name='Main Course').first()
-        appetizer_cat = Category.query.filter_by(name='Appetizers').first()
-        dessert_cat = Category.query.filter_by(name='Desserts').first()
-        beverage_cat = Category.query.filter_by(name='Beverages').first()
-
-        if main_course_cat and appetizer_cat and dessert_cat and beverage_cat:
-            menu_items_data = [
-                {
-                    'name': 'Chicken Biryani',
-                    'description': 'Aromatic basmati rice with tender chicken pieces and traditional spices',
-                    'price': 15.99,
-                    'category_id': main_course_cat.id,
-                    'is_available': True
-                },
-                {
-                    'name': 'Beef Karahi',
-                    'description': 'Spicy beef curry cooked in traditional Pakistani style',
-                    'price': 18.99,
-                    'category_id': main_course_cat.id,
-                    'is_available': True
-                },
-                {
-                    'name': 'Chicken Tikka',
-                    'description': 'Grilled chicken marinated in yogurt and spices',
-                    'price': 12.99,
-                    'category_id': appetizer_cat.id,
-                    'is_available': True
-                },
-                {
-                    'name': 'Samosas (4 pieces)',
-                    'description': 'Crispy pastries filled with spiced potatoes and peas',
-                    'price': 6.99,
-                    'category_id': appetizer_cat.id,
-                    'is_available': True
-                },
-                {
-                    'name': 'Gulab Jamun',
-                    'description': 'Sweet milk dumplings in sugar syrup',
-                    'price': 5.99,
-                    'category_id': dessert_cat.id,
-                    'is_available': True
-                },
-                {
-                    'name': 'Mango Lassi',
-                    'description': 'Traditional yogurt drink with mango',
-                    'price': 4.99,
-                    'category_id': beverage_cat.id,
-                    'is_available': True
-                }
-            ]
-
-            for item_data in menu_items_data:
-                if not MenuItem.query.filter_by(name=item_data['name']).first():
-                    menu_item = MenuItem(**item_data)
-                    db.session.add(menu_item)
-
-        # Create tables
-        tables_data = [
-            {'number': 0, 'capacity': 1, 'is_occupied': False},  # Takeaway table
-            {'number': 1, 'capacity': 4, 'is_occupied': False},
-            {'number': 2, 'capacity': 2, 'is_occupied': False},
-            {'number': 3, 'capacity': 6, 'is_occupied': False},
-            {'number': 4, 'capacity': 4, 'is_occupied': False},
-            {'number': 5, 'capacity': 8, 'is_occupied': False}
-        ]
-
-        for table_data in tables_data:
-            if not Table.query.filter_by(number=table_data['number']).first():
-                table = Table(**table_data)
-                db.session.add(table)
-
-        db.session.commit()
-        print("Sample data created successfully!")
-        
-    except Exception as e:
-        print(f"Error creating sample data: {str(e)}")
-        db.session.rollback()
-
 # -------------------- ERROR HANDLERS --------------------
 @app.errorhandler(404)
 def not_found_error(error):
@@ -831,19 +897,30 @@ def handle_exception(e):
     except Exception:
         return '<h1>500 - Internal Server Error</h1><p>Something went wrong on our end.</p>', 500
 
-# -------------------- INITIALIZATION --------------------
-def init_db():
+# -------------------- DEVELOPMENT HELPER --------------------
+def init_db_local():
+    """Initialize database for local development"""
     try:
         with app.app_context():
             db.create_all()
             create_sample_data()
-            print("Database initialized successfully!")
+            print("Local database initialized successfully!")
     except Exception as e:
-        print(f"Error initializing database: {str(e)}")
+        print(f"Error initializing local database: {str(e)}")
 
+# -------------------- MAIN APPLICATION --------------------
 if __name__ == '__main__':
-    init_db()
+    # Only run local initialization if running directly (not through gunicorn)
+    try:
+        init_db_local()
+    except Exception as e:
+        print(f"Warning: Could not initialize database locally: {str(e)}")
+    
     port = int(os.environ.get('PORT', 8000))
-    # Default debug to false for Azure production
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    
+    print(f"Starting Flask app on port {port}")
+    print(f"Debug mode: {debug_mode}")
+    print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
