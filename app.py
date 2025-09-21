@@ -137,6 +137,7 @@ def dashboard():
         return render_template('dashboard.html', stats=stats)
     except Exception as e:
         flash(f'Error loading dashboard: {str(e)}', 'error')
+        app.logger.error(f'Dashboard error: {str(e)}')
         return render_template('dashboard.html', stats={
             'total_orders': 0, 'pending_orders': 0, 
             'total_revenue': 0, 'total_menu_items': 0, 
@@ -190,7 +191,11 @@ def add_menu_item():
 
 @app.route('/menu/edit/<int:id>', methods=['GET', 'POST'])
 def edit_menu_item(id):
-    menu_item = MenuItem.query.get_or_404(id)
+    menu_item = db.session.get(MenuItem, id)
+    if not menu_item:
+        flash('Menu item not found!', 'error')
+        return redirect(url_for('menu_list'))
+        
     form = MenuItemForm(obj=menu_item)
     
     try:
@@ -210,12 +215,27 @@ def edit_menu_item(id):
 @app.route('/menu/delete/<int:id>')
 def delete_menu_item(id):
     try:
-        menu_item = MenuItem.query.get_or_404(id)
+        menu_item = db.session.get(MenuItem, id)
+        if not menu_item:
+            flash('Menu item not found!', 'error')
+            return redirect(url_for('menu_list'))
+            
+        # Check if menu item is used in any active orders
+        active_orders = db.session.query(OrderItem).join(Order).filter(
+            OrderItem.menu_item_id == id,
+            Order.status.in_(['pending', 'preparing', 'ready'])
+        ).count()
+        
+        if active_orders > 0:
+            flash('Cannot delete menu item that is used in active orders!', 'error')
+            return redirect(url_for('menu_list'))
+            
         db.session.delete(menu_item)
         db.session.commit()
         flash('Menu item deleted successfully!', 'success')
     except Exception as e:
         flash(f'Error deleting menu item: {str(e)}', 'error')
+        db.session.rollback()
     
     return redirect(url_for('menu_list'))
 
@@ -314,7 +334,7 @@ def add_order():
             
             try:
                 table_id = int(table_id)
-                selected_table = Table.query.get(table_id)
+                selected_table = db.session.get(Table, table_id)
                 if not selected_table:
                     return jsonify({'success': False, 'error': 'Selected table does not exist'})
                 if selected_table.is_occupied:
@@ -346,7 +366,7 @@ def add_order():
                 # Add order items and calculate total
                 calculated_total = 0
                 for item_data in order_items:
-                    menu_item = MenuItem.query.get(item_data['id'])
+                    menu_item = db.session.get(MenuItem, item_data['id'])
                     if menu_item:
                         order_item = OrderItem(
                             order_id=order.id,
@@ -367,10 +387,12 @@ def add_order():
                 
             except Exception as e:
                 db.session.rollback()
+                app.logger.error(f'Order creation error: {str(e)}')
                 return jsonify({'success': False, 'error': f'Database error: {str(e)}'})
                 
     except Exception as e:
         flash(f'Error loading order form: {str(e)}', 'error')
+        app.logger.error(f'Order form error: {str(e)}')
         db.session.rollback()
     
     return render_template('add_order.html', form=form, menu_items=menu_items, categories=categories)
@@ -378,7 +400,11 @@ def add_order():
 @app.route('/orders/<int:id>')
 def order_details(id):
     try:
-        order = Order.query.get_or_404(id)
+        order = db.session.get(Order, id)
+        if not order:
+            flash('Order not found!', 'error')
+            return redirect(url_for('orders_list'))
+            
         menu_items = MenuItem.query.filter_by(is_available=True).all()
         return render_template('order_details.html', order=order, menu_items=menu_items)
     except Exception as e:
@@ -388,11 +414,15 @@ def order_details(id):
 @app.route('/orders/<int:id>/add_item', methods=['POST'])
 def add_order_item(id):
     try:
-        order = Order.query.get_or_404(id)
+        order = db.session.get(Order, id)
+        if not order:
+            flash('Order not found!', 'error')
+            return redirect(url_for('orders_list'))
+            
         menu_item_id = request.form.get('menu_item_id')
         quantity = int(request.form.get('quantity', 1))
 
-        menu_item = MenuItem.query.get(menu_item_id)
+        menu_item = db.session.get(MenuItem, menu_item_id)
         if menu_item:
             existing_item = OrderItem.query.filter_by(
                 order_id=order.id, 
@@ -425,7 +455,11 @@ def add_order_item(id):
 @app.route('/orders/<int:id>/update_status', methods=['POST'])
 def update_order_status(id):
     try:
-        order = Order.query.get_or_404(id)
+        order = db.session.get(Order, id)
+        if not order:
+            flash('Order not found!', 'error')
+            return redirect(url_for('orders_list'))
+            
         new_status = request.form.get('status')
 
         if new_status in ['pending', 'preparing', 'ready', 'delivered', 'cancelled']:
@@ -496,7 +530,10 @@ def add_table():
 
 @app.route('/tables/edit/<int:id>', methods=['GET', 'POST'])
 def edit_table(id):
-    table = Table.query.get_or_404(id)
+    table = db.session.get(Table, id)
+    if not table:
+        flash('Table not found!', 'error')
+        return redirect(url_for('tables_list'))
     
     if request.method == 'POST':
         try:
@@ -543,7 +580,10 @@ def edit_table(id):
 @app.route('/tables/delete/<int:id>')
 def delete_table(id):
     try:
-        table = Table.query.get_or_404(id)
+        table = db.session.get(Table, id)
+        if not table:
+            flash('Table not found!', 'error')
+            return redirect(url_for('tables_list'))
         
         active_orders = Order.query.filter(
             Order.table_id == id,
@@ -562,6 +602,69 @@ def delete_table(id):
         db.session.rollback()
     
     return redirect(url_for('tables_list'))
+
+# -------------------- API ENDPOINTS --------------------
+@app.route('/api/dashboard')
+def api_dashboard():
+    try:
+        total_orders = Order.query.count()
+        pending_orders = Order.query.filter_by(status='pending').count()
+        total_revenue = db.session.query(db.func.sum(Order.total_amount)).scalar() or 0
+        total_menu_items = MenuItem.query.count()
+
+        return jsonify({
+            'total_orders': total_orders,
+            'pending_orders': pending_orders,
+            'total_revenue': float(total_revenue),
+            'total_menu_items': total_menu_items
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/menu')
+def api_menu():
+    try:
+        menu_items = MenuItem.query.all()
+        return jsonify([{
+            'id': item.id,
+            'name': item.name,
+            'description': item.description,
+            'price': float(item.price),
+            'category': item.category.name if item.category else 'Unknown',
+            'available': item.is_available
+        } for item in menu_items])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tables')
+def api_tables():
+    try:
+        tables = Table.query.order_by(Table.number).all()
+        return jsonify([{
+            'id': table.id,
+            'number': table.number,
+            'capacity': table.capacity,
+            'is_occupied': table.is_occupied
+        } for table in tables])
+    except Exception as e:
+        app.logger.error(f'API tables error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/orders')
+def api_orders():
+    try:
+        orders = Order.query.order_by(Order.created_at.desc()).all()
+        return jsonify([{
+            'id': order.id,
+            'customer_name': order.customer_name,
+            'table_number': order.table.number,
+            'status': order.status,
+            'total_amount': float(order.total_amount),
+            'created_at': order.created_at.isoformat(),
+            'items_count': len(order.items)
+        } for order in orders])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # -------------------- DEBUG ROUTES --------------------
 @app.route('/debug/data')
@@ -604,39 +707,6 @@ def debug_data():
         """
     except Exception as e:
         return f"Error: {str(e)}"
-
-# -------------------- API ENDPOINTS --------------------
-@app.route('/api/dashboard')
-def api_dashboard():
-    try:
-        total_orders = Order.query.count()
-        pending_orders = Order.query.filter_by(status='pending').count()
-        total_revenue = db.session.query(db.func.sum(Order.total_amount)).scalar() or 0
-        total_menu_items = MenuItem.query.count()
-
-        return jsonify({
-            'total_orders': total_orders,
-            'pending_orders': pending_orders,
-            'total_revenue': float(total_revenue),
-            'total_menu_items': total_menu_items
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/menu')
-def api_menu():
-    try:
-        menu_items = MenuItem.query.all()
-        return jsonify([{
-            'id': item.id,
-            'name': item.name,
-            'description': item.description,
-            'price': float(item.price),
-            'category': item.category.name if item.category else 'Unknown',
-            'available': item.is_available
-        } for item in menu_items])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 # -------------------- SAMPLE DATA --------------------
 def create_sample_data():
@@ -745,6 +815,16 @@ def not_found_error(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    try:
+        db.session.rollback()
+        return render_template('500.html'), 500
+    except Exception:
+        return '<h1>500 - Internal Server Error</h1><p>Something went wrong on our end.</p>', 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle all other exceptions"""
+    app.logger.error(f'Unhandled exception: {str(e)}')
     try:
         db.session.rollback()
         return render_template('500.html'), 500
